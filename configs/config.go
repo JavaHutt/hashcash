@@ -9,10 +9,11 @@ import (
 
 // Config is a configuration object
 type Config struct {
-	Host           string        `yaml:"host"`
-	Port           int           `yaml:"port"`
-	HashBits       int           `yaml:"hash_bits"`
-	HashExpiration time.Duration `yaml:"hash_expiration"`
+	Host              string        `mapstructure:"host"`
+	Port              int           `mapstructure:"port"`
+	HashBits          int           `mapstructure:"hash_bits"`
+	HashMaxIterations int           `mapstructure:"hash_max_iterations"`
+	HashExpiration    time.Duration `mapstructure:"hash_expiration"`
 }
 
 // ParseConfig parses the `config.yaml` file in path
@@ -32,8 +33,6 @@ func ParseConfig(path string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading config file: %w", err)
 	}
-
-	config.HashExpiration = viper.GetDuration("hash_expiration")
 
 	if err = viper.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("unable to decode into struct: %w", err)
