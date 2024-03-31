@@ -23,6 +23,7 @@ type server struct {
 	logger *zap.SugaredLogger
 }
 
+// NewServer is a constructor
 func NewServer(cfg configs.Config, logger *zap.SugaredLogger) *server {
 	return &server{
 		cfg:    cfg,
@@ -30,6 +31,7 @@ func NewServer(cfg configs.Config, logger *zap.SugaredLogger) *server {
 	}
 }
 
+// Listen starts listening for incoming TCP connections. Blocking operation
 func (s *server) Listen(ctx context.Context) error {
 	port := strconv.Itoa(s.cfg.Port)
 	li, err := net.Listen("tcp", ":"+port)

@@ -7,6 +7,7 @@ const (
 	MessageKindSolvedChallenge  = "solved-challenge"
 )
 
+// Message is an object that client sends to the server
 type Message struct {
 	Kind     messageKind `json:"kind"`
 	Hashcash string      `json:"hashcash"`

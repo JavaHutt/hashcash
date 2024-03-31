@@ -3,6 +3,10 @@ package main
 import (
 	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/JavaHutt/hashcash/configs"
 	"github.com/JavaHutt/hashcash/internal/client"
@@ -21,10 +25,30 @@ func main() {
 	defer logger.Sync()
 
 	sugar := logger.Sugar()
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigs
+		sugar.Infof("received signal: %s", sig)
+		cancel()
+	}()
 
 	c := client.NewClient(*cfg, sugar)
-	if err = c.Run(ctx); err != nil {
-		log.Fatal(err)
+	for {
+		if err = c.Run(ctx); err != nil {
+			log.Fatal(err)
+		}
+
+		select {
+		case <-time.After(time.Second * 5):
+			continue
+		case <-ctx.Done():
+			sugar.Info("context canceled, shutting down gracefully...")
+			return
+		}
 	}
 }
