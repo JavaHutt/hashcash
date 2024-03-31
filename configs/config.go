@@ -11,6 +11,7 @@ import (
 type Config struct {
 	Host           string        `yaml:"host"`
 	Port           int           `yaml:"port"`
+	HashBits       int           `yaml:"hash_bits"`
 	HashExpiration time.Duration `yaml:"hash_expiration"`
 }
 
@@ -32,8 +33,7 @@ func ParseConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("error reading config file: %w", err)
 	}
 
-	e := viper.GetDuration("hash_expiration")
-	fmt.Println(e)
+	config.HashExpiration = viper.GetDuration("hash_expiration")
 
 	if err = viper.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("unable to decode into struct: %w", err)

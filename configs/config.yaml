@@ -1,0 +1,4 @@
+host: localhost
+port: 8080
+hash_bits: 5
+hash_expiration: "30m"
