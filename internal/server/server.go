@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/JavaHutt/hashcash/configs"
@@ -21,6 +22,8 @@ import (
 type server struct {
 	cfg    configs.Config
 	logger *zap.SugaredLogger
+	wg     sync.WaitGroup
+	li     net.Listener
 }
 
 // NewServer is a constructor
@@ -34,21 +37,50 @@ func NewServer(cfg configs.Config, logger *zap.SugaredLogger) *server {
 // Listen starts listening for incoming TCP connections. Blocking operation
 func (s *server) Listen(ctx context.Context) error {
 	port := strconv.Itoa(s.cfg.Port)
-	li, err := net.Listen("tcp", ":"+port)
-	if err != nil {
+	var err error
+	if s.li, err = net.Listen("tcp", ":"+port); err != nil {
 		return fmt.Errorf("error listening tcp connection: %w", err)
 	}
-	defer li.Close()
+	defer s.li.Close()
 
 	s.logger.Infof("listening at %s", port)
 
 	for {
-		conn, err := li.Accept()
+		conn, err := s.li.Accept()
 		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				s.logger.Info("server stopping as listener was closed")
+				return nil
+			}
 			return fmt.Errorf("error accepting message: %w", err)
 		}
+		s.wg.Add(1)
 
-		go s.handleRequest(conn)
+		go func() {
+			defer s.wg.Done()
+			s.handleRequest(conn)
+		}()
+	}
+}
+
+// Shutdown gracefully shuts down the server.
+func (s *server) Shutdown(ctx context.Context) error {
+	if err := s.li.Close(); err != nil {
+		s.logger.Errorf("failed to close listener: %v", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		s.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-done:
+		s.logger.Info("all connections closed")
+		return nil
 	}
 }
 

@@ -31,11 +31,7 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	go func() {
-		sig := <-sigs
-		sugar.Infof("received signal: %s", sig)
-		cancel()
-	}()
+	go captureSigs(sigs, sugar, cancel)
 
 	c := client.NewClient(*cfg, sugar)
 	for {
@@ -51,4 +47,10 @@ func main() {
 			return
 		}
 	}
+}
+
+func captureSigs(sigs chan os.Signal, logger *zap.SugaredLogger, cancel context.CancelFunc) {
+	sig := <-sigs
+	logger.Infof("Received signal: %s", sig)
+	cancel()
 }
