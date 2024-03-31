@@ -28,3 +28,57 @@ func TestHashcash(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, h, *parsedHash)
 }
+
+func TestCheckHash(t *testing.T) {
+	tests := []struct {
+		name  string
+		hash  []byte
+		bits  int
+		valid bool
+	}{
+		{
+			name:  "Zero hash, 0 bits",
+			hash:  []byte{0, 0, 0, 0},
+			bits:  0,
+			valid: true,
+		},
+		{
+			name:  "Zero hash, 8 bits",
+			hash:  []byte{0, 0, 0, 0},
+			bits:  8,
+			valid: true,
+		},
+		{
+			name:  "Zero hash, 9 bits",
+			hash:  []byte{0, 0, 0, 0},
+			bits:  9,
+			valid: true,
+		},
+		{
+			name:  "Non-zero hash, 8 bits (invalid)",
+			hash:  []byte{1, 0, 0, 0},
+			bits:  8,
+			valid: false,
+		},
+		{
+			name:  "Non-zero hash, 9 bits (valid)",
+			hash:  []byte{0, 1, 0, 0}, // Second byte does not matter for 9 bits.
+			bits:  9,
+			valid: true,
+		},
+		{
+			name:  "Non-zero hash, 16 bits (invalid)",
+			hash:  []byte{0, 1, 0, 0},
+			bits:  16,
+			valid: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := CheckHash(test.hash, test.bits); got != test.valid {
+				t.Errorf("CheckHash() = %v, want %v", got, test.valid)
+			}
+		})
+	}
+}

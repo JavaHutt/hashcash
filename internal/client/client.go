@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -60,7 +59,7 @@ func (c *client) Run(_ context.Context) error {
 	return nil
 }
 
-func (c *client) requestService(conn net.Conn) (*models.Hashcash, error) {
+func (c *client) requestService(conn io.ReadWriter) (*models.Hashcash, error) {
 	msg := models.Message{Kind: models.MessageKindRequestChallenge}
 
 	if err := writeJSONResp(conn, msg); err != nil {
@@ -82,7 +81,7 @@ func (c *client) requestService(conn net.Conn) (*models.Hashcash, error) {
 
 func (c *client) solveChallenge(hashcash models.Hashcash) (*models.Hashcash, error) {
 	if !c.checkDate(hashcash.Date) {
-		return nil, errors.New("didn't pass date check")
+		return nil, ErrDateCheck
 	}
 
 	for range c.cfg.HashMaxIterations {
@@ -95,15 +94,16 @@ func (c *client) solveChallenge(hashcash models.Hashcash) (*models.Hashcash, err
 		hashcash.Counter++
 	}
 
-	return nil, errors.New("maximum iterations exceeded")
+	return nil, ErrMaxIterExceed
 }
 
 func (c *client) checkDate(date time.Time) bool {
 	now := time.Now().UTC()
-	return date.Before(now.Add(c.cfg.HashExpiration))
+	expiration := date.Add(c.cfg.HashExpiration)
+	return now.Before(expiration) || now.Equal(expiration)
 }
 
-func (c *client) respondSolved(conn net.Conn, hashcash models.Hashcash) (string, error) {
+func (c *client) respondSolved(conn io.ReadWriter, hashcash models.Hashcash) (string, error) {
 	msg := models.Message{
 		Kind:     models.MessageKindSolvedChallenge,
 		Hashcash: hashcash.String(),
