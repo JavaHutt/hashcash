@@ -16,5 +16,5 @@ func main() {
 	ctx := context.Background()
 
 	s := server.NewServer(*cfg)
-	s.Run(ctx)
+	s.Listen(ctx)
 }
