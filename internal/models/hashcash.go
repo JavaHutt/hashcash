@@ -26,6 +26,23 @@ func (h Hashcash) String() string {
 	return fmt.Sprintf("%d:%d:%s:%s::%s:%s", h.Ver, h.Bits, h.Date.Format(dateLayout), h.Resource, encodedRand, encodedCounter)
 }
 
+func CheckHash(hash []byte, bits int) bool {
+	zeroBytes := bits / 8
+	zeroBits := bits % 8
+	for i := range zeroBytes {
+		if hash[i] != 0 {
+			return false
+		}
+	}
+
+	if zeroBits > 0 {
+		mask := byte(0xFF << (8 - zeroBits))
+		return hash[zeroBytes]&mask == 0
+	}
+
+	return true
+}
+
 func ParseHashcash(h string) (*Hashcash, error) {
 	parts := strings.SplitN(h, "::", 2)
 	if len(parts) != 2 {

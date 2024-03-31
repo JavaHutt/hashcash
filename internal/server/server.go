@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"crypto/sha1"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -15,8 +17,6 @@ import (
 
 	"go.uber.org/zap"
 )
-
-const eofDelim = '\n'
 
 type server struct {
 	cfg    configs.Config
@@ -69,7 +69,7 @@ func (s *server) handleRequest(conn net.Conn) {
 				return
 			}
 		case models.MessageKindSolvedChallenge:
-			if err = s.verifySolved(conn, conn.RemoteAddr()); err != nil {
+			if err = s.verifySolved(conn, conn.RemoteAddr(), msg); err != nil {
 				s.logger.Errorf("failed to verify solved challenge: %v", err)
 			}
 			return
@@ -102,15 +102,44 @@ func (s *server) chooseChallenge(conn io.Writer, clientAddr net.Addr) error {
 	return nil
 }
 
-func (s *server) verifySolved(w io.Writer, clientAddr net.Addr) error {
-	if err := writeResp(w, "WISDOM"); err != nil {
+func (s *server) verifySolved(w io.Writer, clientAddr net.Addr, msg models.Message) error {
+	resource, _, err := net.SplitHostPort(clientAddr.String())
+	if err != nil {
+		return fmt.Errorf("failed to split host port: %w", err)
+	}
+
+	hashcash, err := models.ParseHashcash(msg.Hashcash)
+	if err != nil {
+		return fmt.Errorf("failed to parse hashcash: %w", err)
+	}
+
+	if hashcash.Resource != resource {
+		return errors.New("hashcash resource and client addr aren't matching")
+	}
+
+	if !s.checkDate(hashcash.Date) {
+		return errors.New("didn't pass date check")
+	}
+
+	hash := sha1.Sum([]byte(hashcash.String()))
+	if !models.CheckHash(hash[:], hashcash.Bits) {
+		return errors.New("hash does not meet the difficulty criteria")
+	}
+
+	if err := writeResp(w, getWidsom()); err != nil {
 		return err
 	}
+
 	return nil
 }
 
+func (s *server) checkDate(date time.Time) bool {
+	now := time.Now().UTC()
+	return date.Before(now.Add(s.cfg.HashExpiration))
+}
+
 func writeResp(w io.Writer, response string) error {
-	if _, err := w.Write([]byte(response + string(eofDelim))); err != nil {
+	if _, err := w.Write([]byte(response + string(models.EOFDelim))); err != nil {
 		return err
 	}
 	return nil

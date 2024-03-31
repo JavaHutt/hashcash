@@ -18,8 +18,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const eofDelim = '\n'
-
 type client struct {
 	cfg    configs.Config
 	logger *zap.SugaredLogger
@@ -53,7 +51,7 @@ func (c *client) Run(_ context.Context) error {
 	c.logger.Infof("counter before: %d, after solved: %d", hashcash.Counter, solved.Counter)
 
 	// 3. Respond solved
-	wisdom, err := c.respondSolved(conn, *hashcash)
+	wisdom, err := c.respondSolved(conn, *solved)
 	if err != nil {
 		return err
 	}
@@ -64,12 +62,8 @@ func (c *client) Run(_ context.Context) error {
 
 func (c *client) requestService(conn net.Conn) (*models.Hashcash, error) {
 	msg := models.Message{Kind: models.MessageKindRequestChallenge}
-	b, err := json.Marshal(msg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request message: %w", err)
-	}
 
-	if _, err = conn.Write(b); err != nil {
+	if err := writeJSONResp(conn, msg); err != nil {
 		return nil, fmt.Errorf("failed to write request message: %w", err)
 	}
 
@@ -94,7 +88,7 @@ func (c *client) solveChallenge(hashcash models.Hashcash) (*models.Hashcash, err
 	for range c.cfg.HashMaxIterations {
 		hash := sha1.Sum([]byte(hashcash.String()))
 
-		if checkHash(hash[:], hashcash.Bits) {
+		if models.CheckHash(hash[:], hashcash.Bits) {
 			return &hashcash, nil
 		}
 
@@ -109,34 +103,13 @@ func (c *client) checkDate(date time.Time) bool {
 	return date.Before(now.Add(c.cfg.HashExpiration))
 }
 
-func checkHash(hash []byte, bits int) bool {
-	zeroBytes := bits / 8
-	zeroBits := bits % 8
-	for i := range zeroBytes {
-		if hash[i] != 0 {
-			return false
-		}
-	}
-
-	if zeroBits > 0 {
-		mask := byte(0xFF << (8 - zeroBits))
-		return hash[zeroBytes]&mask == 0
-	}
-
-	return true
-}
-
 func (c *client) respondSolved(conn net.Conn, hashcash models.Hashcash) (string, error) {
 	msg := models.Message{
 		Kind:     models.MessageKindSolvedChallenge,
 		Hashcash: hashcash.String(),
 	}
-	b, err := json.Marshal(msg)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal solved message: %w", err)
-	}
 
-	if _, err = conn.Write(b); err != nil {
+	if err := writeJSONResp(conn, msg); err != nil {
 		return "", fmt.Errorf("failed to write solved message: %w", err)
 	}
 
@@ -148,13 +121,26 @@ func (c *client) respondSolved(conn net.Conn, hashcash models.Hashcash) (string,
 	return string(resp), nil
 }
 
+func writeJSONResp(w io.Writer, response any) error {
+	b, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal response: %w", err)
+	}
+
+	if _, err = w.Write(b); err != nil {
+		return fmt.Errorf("failed to write response message: %w", err)
+	}
+
+	return nil
+}
+
 func readResponse(r io.Reader) ([]byte, error) {
 	reader := bufio.NewReader(r)
-	resp, err := reader.ReadBytes(eofDelim)
+	resp, err := reader.ReadBytes(models.EOFDelim)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read bytes: %w", err)
 	}
-	resp = bytes.TrimSuffix(resp, []byte{eofDelim})
+	resp = bytes.TrimSuffix(resp, []byte{models.EOFDelim})
 
 	return resp, nil
 }
