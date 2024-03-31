@@ -16,6 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const eofDelim = '\n'
+
 type server struct {
 	cfg    configs.Config
 	logger *zap.SugaredLogger
@@ -51,21 +53,30 @@ func (s *server) Listen(ctx context.Context) error {
 func (s *server) handleRequest(conn net.Conn) {
 	defer conn.Close()
 
-	msg, err := decodeMessage(conn)
-	if err != nil {
-		s.logger.Errorf("error decoding message: %v", err)
-		return
-	}
-
-	s.logger.Infof("received message: %v", msg)
-
-	switch msg.Kind {
-	case models.MessageKindRequestChallenge:
-		if err = s.chooseChallenge(conn, conn.RemoteAddr()); err != nil {
-			s.logger.Errorf("failed to choose challenge: %v", err)
+	for {
+		msg, err := decodeMessage(conn)
+		if err != nil {
+			s.logger.Errorf("error decoding message: %v", err)
+			return
 		}
-	default:
-		s.logger.Warnf("unknown message kind: %v", msg.Kind)
+
+		s.logger.Infof("received message: %v", msg)
+
+		switch msg.Kind {
+		case models.MessageKindRequestChallenge:
+			if err = s.chooseChallenge(conn, conn.RemoteAddr()); err != nil {
+				s.logger.Errorf("failed to choose challenge: %v", err)
+				return
+			}
+		case models.MessageKindSolvedChallenge:
+			if err = s.verifySolved(conn, conn.RemoteAddr()); err != nil {
+				s.logger.Errorf("failed to verify solved challenge: %v", err)
+			}
+			return
+		default:
+			s.logger.Warnf("unknown message kind: %v", msg.Kind)
+			return
+		}
 	}
 }
 
@@ -84,10 +95,24 @@ func (s *server) chooseChallenge(conn io.Writer, clientAddr net.Addr) error {
 		Counter:  3,
 	}
 
-	if _, err = conn.Write([]byte(hashcash.String())); err != nil {
+	if err = writeResp(conn, hashcash.String()); err != nil {
 		return fmt.Errorf("failed to write hashcash string: %w", err)
 	}
 
+	return nil
+}
+
+func (s *server) verifySolved(w io.Writer, clientAddr net.Addr) error {
+	if err := writeResp(w, "WISDOM"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeResp(w io.Writer, response string) error {
+	if _, err := w.Write([]byte(response + string(eofDelim))); err != nil {
+		return err
+	}
 	return nil
 }
 

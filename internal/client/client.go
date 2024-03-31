@@ -1,13 +1,14 @@
 package client
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 
 	"go.uber.org/zap"
 )
+
+const eofDelim = '\n'
 
 type client struct {
 	cfg    configs.Config
@@ -42,14 +45,20 @@ func (c *client) Run(_ context.Context) error {
 		return err
 	}
 
-	// 2. SolveChallenge
+	// 2. Solve challenge
 	solved, err := c.solveChallenge(*hashcash)
 	if err != nil {
 		return err
 	}
 	c.logger.Infof("counter before: %d, after solved: %d", hashcash.Counter, solved.Counter)
 
-	// 3. ResponseSolved
+	// 3. Respond solved
+	wisdom, err := c.respondSolved(conn, *hashcash)
+	if err != nil {
+		return err
+	}
+	c.logger.Infof("Thou shalt hear the word of wisdom: %s 👼", wisdom)
+
 	return nil
 }
 
@@ -64,9 +73,9 @@ func (c *client) requestService(conn net.Conn) (*models.Hashcash, error) {
 		return nil, fmt.Errorf("failed to write request message: %w", err)
 	}
 
-	resp, err := io.ReadAll(conn)
+	resp, err := readResponse(conn)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to read challenge response: %w", err)
 	}
 
 	hashcash, err := models.ParseHashcash(string(resp))
@@ -115,6 +124,39 @@ func checkHash(hash []byte, bits int) bool {
 	}
 
 	return true
+}
+
+func (c *client) respondSolved(conn net.Conn, hashcash models.Hashcash) (string, error) {
+	msg := models.Message{
+		Kind:     models.MessageKindSolvedChallenge,
+		Hashcash: hashcash.String(),
+	}
+	b, err := json.Marshal(msg)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal solved message: %w", err)
+	}
+
+	if _, err = conn.Write(b); err != nil {
+		return "", fmt.Errorf("failed to write solved message: %w", err)
+	}
+
+	resp, err := readResponse(conn)
+	if err != nil {
+		return "", fmt.Errorf("failed to read granted response: %w", err)
+	}
+
+	return string(resp), nil
+}
+
+func readResponse(r io.Reader) ([]byte, error) {
+	reader := bufio.NewReader(r)
+	resp, err := reader.ReadBytes(eofDelim)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read bytes: %w", err)
+	}
+	resp = bytes.TrimSuffix(resp, []byte{eofDelim})
+
+	return resp, nil
 }
 
 func getAddress(cfg configs.Config) string {
