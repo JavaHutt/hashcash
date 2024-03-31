@@ -10,7 +10,7 @@ import (
 //go:embed data/wisdom.txt
 var wisdom string
 
-func getWidsom() string {
+func getRandomWisdom() string {
 	quotes := strings.Split(wisdom, "\n")
 
 	source := rand.NewSource(time.Now().UnixNano())

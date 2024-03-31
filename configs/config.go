@@ -13,6 +13,7 @@ type Config struct {
 	Port              int           `mapstructure:"port"`
 	HashBits          int           `mapstructure:"hash_bits"`
 	HashMaxIterations int           `mapstructure:"hash_max_iterations"`
+	HashCounter       int           `mapstructure:"hash_counter"`
 	HashExpiration    time.Duration `mapstructure:"hash_expiration"`
 }
 

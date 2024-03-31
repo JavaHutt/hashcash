@@ -126,7 +126,7 @@ func (s *server) chooseChallenge(conn io.Writer, clientAddr net.Addr) error {
 		Date:     time.Now().UTC(),
 		Resource: resource,
 		Rand:     fmt.Sprintf("%d", rand.Intn(1e3)),
-		Counter:  3,
+		Counter:  s.cfg.HashCounter,
 	}
 
 	if err = writeResp(conn, hashcash.String()); err != nil {
@@ -160,11 +160,7 @@ func (s *server) verifySolved(w io.Writer, clientAddr net.Addr, msg models.Messa
 		return errors.New("hash does not meet the difficulty criteria")
 	}
 
-	if err := writeResp(w, getWidsom()); err != nil {
-		return err
-	}
-
-	return nil
+	return writeResp(w, getRandomWisdom())
 }
 
 func (s *server) checkDate(date time.Time) bool {
@@ -179,9 +175,9 @@ func writeResp(w io.Writer, response string) error {
 	return nil
 }
 
-func decodeMessage(conn net.Conn) (models.Message, error) {
+func decodeMessage(r io.Reader) (models.Message, error) {
 	var msg models.Message
-	err := json.NewDecoder(conn).Decode(&msg)
+	err := json.NewDecoder(r).Decode(&msg)
 	if err != nil {
 		return models.Message{}, fmt.Errorf("error decoding message: %w", err)
 	}
