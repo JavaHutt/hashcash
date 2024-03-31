@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 
 	"github.com/JavaHutt/hashcash/configs"
@@ -49,6 +50,12 @@ func (c *client) requestService(ctx context.Context, conn net.Conn) error {
 	if _, err = conn.Write(b); err != nil {
 		return fmt.Errorf("failed to write request message: %w", err)
 	}
+
+	r, err := io.ReadAll(conn)
+	if err != nil {
+		return fmt.Errorf("failed get challenge: %w", err)
+	}
+	fmt.Println(string(r))
 
 	return nil
 }

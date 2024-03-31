@@ -4,21 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 
 	"github.com/JavaHutt/hashcash/configs"
 	"github.com/JavaHutt/hashcash/internal/models"
+	"go.uber.org/zap"
 )
 
 type server struct {
-	cfg configs.Config
+	cfg    configs.Config
+	logger *zap.SugaredLogger
 }
 
-func NewServer(cfg configs.Config) *server {
+func NewServer(cfg configs.Config, logger *zap.SugaredLogger) *server {
 	return &server{
-		cfg: cfg,
+		cfg:    cfg,
+		logger: logger,
 	}
 }
 
@@ -30,29 +32,50 @@ func (s *server) Listen(ctx context.Context) error {
 	}
 	defer li.Close()
 
-	fmt.Printf("Listening on %s", port)
+	s.logger.Infof("listening at %s", port)
+
 	for {
 		conn, err := li.Accept()
 		if err != nil {
 			return fmt.Errorf("error accepting message: %w", err)
 		}
 
-		go handleRequest(conn)
+		go s.handleRequest(conn)
 	}
 }
 
-func handleRequest(conn net.Conn) {
+func (s *server) handleRequest(conn net.Conn) {
 	defer conn.Close()
 
-	var msg models.Message
-	err := json.NewDecoder(conn).Decode(&msg)
+	msg, err := decodeMessage(conn)
 	if err != nil {
-		fmt.Println("Error reading:", err.Error())
+		s.logger.Errorf("error decoding message: %v", err)
 		return
 	}
 
-	fmt.Println("Received:", msg)
-	if _, err = conn.Write([]byte("Message received.\n")); err != nil {
-		log.Printf("failed to write to connection: %w", err)
+	s.logger.Infof("received message: %v", msg)
+
+	switch msg.Kind {
+	case models.MessageKindRequestChallenge:
+		if err = s.chooseChallenge(conn); err != nil {
+			s.logger.Errorf("failed to choose challenge: %v", err)
+		}
+	default:
+		s.logger.Warnf("unknown message kind: %v", msg.Kind)
 	}
+}
+
+func (s *server) chooseChallenge(conn net.Conn) error {
+	conn.Write([]byte("here is your challenge"))
+	return nil
+}
+
+func decodeMessage(conn net.Conn) (models.Message, error) {
+	var msg models.Message
+	err := json.NewDecoder(conn).Decode(&msg)
+	if err != nil {
+		return models.Message{}, fmt.Errorf("error decoding message: %w", err)
+	}
+
+	return msg, nil
 }
