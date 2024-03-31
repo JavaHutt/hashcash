@@ -47,7 +47,6 @@ func ParseHashcash(h string) (*Hashcash, error) {
 		return nil, fmt.Errorf("invalid bits: %w", err)
 	}
 
-	// Parsing the date assuming the format is YYMMDD
 	date, err := time.Parse(dateLayout, initialParts[2])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %w", err)
@@ -55,7 +54,6 @@ func ParseHashcash(h string) (*Hashcash, error) {
 
 	resource := initialParts[3]
 
-	// Splitting and decoding the rand and counter values
 	finalParts := strings.Split(parts[1], ":")
 	if len(finalParts) != 2 {
 		return nil, errors.New("invalid final hashcash segment")

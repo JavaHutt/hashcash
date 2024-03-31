@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 
 	"github.com/JavaHutt/hashcash/configs"
@@ -21,7 +22,7 @@ func NewClient(cfg configs.Config) *client {
 	}
 }
 
-func (c *client) Run(ctx context.Context) error {
+func (c *client) Run(_ context.Context) error {
 	conn, err := net.Dial("tcp", getAddress(c.cfg))
 	if err != nil {
 		return fmt.Errorf("couldn't connect to server: %w", err)
@@ -30,9 +31,12 @@ func (c *client) Run(ctx context.Context) error {
 	defer conn.Close()
 
 	// 1. Request service
-	if err = c.requestService(ctx, conn); err != nil {
+	hashcash, err := c.requestService(conn)
+	if err != nil {
 		return err
 	}
+
+	fmt.Printf("hashcash: %+v", *hashcash)
 
 	// 2. SolveChallenge
 
@@ -40,24 +44,28 @@ func (c *client) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *client) requestService(ctx context.Context, conn net.Conn) error {
+func (c *client) requestService(conn net.Conn) (*models.Hashcash, error) {
 	msg := models.Message{Kind: models.MessageKindRequestChallenge}
 	b, err := json.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("failed to marshal request message: %w", err)
+		return nil, fmt.Errorf("failed to marshal request message: %w", err)
 	}
 
 	if _, err = conn.Write(b); err != nil {
-		return fmt.Errorf("failed to write request message: %w", err)
+		return nil, fmt.Errorf("failed to write request message: %w", err)
 	}
 
-	r, err := io.ReadAll(conn)
+	resp, err := io.ReadAll(conn)
 	if err != nil {
-		return fmt.Errorf("failed get challenge: %w", err)
+		log.Fatal(err)
 	}
-	fmt.Println(string(r))
 
-	return nil
+	hashcash, err := models.ParseHashcash(string(resp))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse hashcash: %w", err)
+	}
+
+	return hashcash, nil
 }
 
 func getAddress(cfg configs.Config) string {

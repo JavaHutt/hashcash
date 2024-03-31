@@ -16,5 +16,7 @@ func main() {
 	ctx := context.Background()
 
 	c := client.NewClient(*cfg)
-	c.Run(ctx)
+	if err = c.Run(ctx); err != nil {
+		log.Fatal(err)
+	}
 }

@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/JavaHutt/hashcash/configs"
 	"github.com/JavaHutt/hashcash/internal/models"
@@ -66,7 +68,24 @@ func (s *server) handleRequest(conn net.Conn) {
 }
 
 func (s *server) chooseChallenge(conn net.Conn) error {
-	conn.Write([]byte("here is your challenge"))
+	resource, _, err := net.SplitHostPort(conn.RemoteAddr().String())
+	if err != nil {
+		return fmt.Errorf("failed to split host port: %w", err)
+	}
+
+	hashcash := models.Hashcash{
+		Ver:      1,
+		Bits:     s.cfg.HashBits,
+		Date:     time.Now().UTC(),
+		Resource: resource,
+		Rand:     fmt.Sprintf("%d", rand.Intn(1e3)),
+		Counter:  1,
+	}
+
+	if _, err := conn.Write([]byte(hashcash.String())); err != nil {
+		return fmt.Errorf("failed to write hashcash string: %w", err)
+	}
+
 	return nil
 }
 
