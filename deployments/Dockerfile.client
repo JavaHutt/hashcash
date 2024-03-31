@@ -1,0 +1,17 @@
+FROM golang:1.22.0-alpine AS build
+
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /client ./cmd/client/main.go
+
+FROM alpine
+RUN mkdir /configs
+
+COPY --from=build /client /client
+COPY ./configs/config.yaml /configs/config.yaml
+
+CMD ["/client"]

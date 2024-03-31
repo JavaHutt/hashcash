@@ -2,6 +2,7 @@ package configs
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/spf13/viper"
@@ -20,6 +21,29 @@ type Config struct {
 // ParseConfig parses the `config.yaml` file in path
 // if path is empty, default config is loaded
 func ParseConfig(path string) (*Config, error) {
+	config, err := loadDefaultConfig(path)
+	if err != nil {
+		return nil, err
+	}
+
+	host := viper.GetString("SERVER_HOST")
+	if host != "" {
+		config.Host = host
+	}
+
+	portStr := viper.GetString("SERVER_PORT")
+	if portStr != "" {
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			return nil, err
+		}
+		config.Port = port
+	}
+
+	return config, nil
+}
+
+func loadDefaultConfig(path string) (*Config, error) {
 	var config Config
 
 	viper.SetConfigName("config")
@@ -38,6 +62,8 @@ func ParseConfig(path string) (*Config, error) {
 	if err = viper.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("unable to decode into struct: %w", err)
 	}
+
+	viper.AutomaticEnv()
 
 	return &config, nil
 }

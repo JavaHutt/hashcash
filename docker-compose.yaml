@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.server
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./configs:/configs
+
+  client:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.client
+    depends_on:
+      - server
+    volumes:
+      - ./configs:/configs
+    environment:
+      SERVER_HOST: server
+      SERVER_PORT: 8080
