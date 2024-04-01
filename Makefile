@@ -7,6 +7,9 @@ server	:
 test	:
 	go test -v ./internal/*
 
+volume	:
+	docker volume create redis_data
+
 up	:
 	docker-compose -f docker-compose.yaml up -d
 

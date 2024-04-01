@@ -42,6 +42,11 @@ func ParseConfig(path string) (*Config, error) {
 		config.Port = port
 	}
 
+	storeAddr := viper.GetString("STORE_ADDR")
+	if storeAddr != "" {
+		config.StoreAddr = storeAddr
+	}
+
 	return config, nil
 }
 

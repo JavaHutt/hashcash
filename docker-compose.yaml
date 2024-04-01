@@ -9,6 +9,8 @@ services:
       - "8080:8080"
     volumes:
       - ./configs:/configs
+    environment:
+      STORE_ADDR: redis:6379
 
   client:
     build:
@@ -21,3 +23,13 @@ services:
     environment:
       SERVER_HOST: server
       SERVER_PORT: 8080
+
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:
