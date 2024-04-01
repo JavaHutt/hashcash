@@ -6,7 +6,6 @@ import (
 
 	"github.com/JavaHutt/hashcash/configs"
 	"github.com/JavaHutt/hashcash/internal/server/mocks"
-
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
@@ -32,4 +31,30 @@ func TestChooseChallenge(t *testing.T) {
 
 	expectedResource := "127.0.0.1"
 	assert.Contains(t, writeBufferContents, expectedResource)
+}
+
+func Test_normalizeIPAddress(t *testing.T) {
+	tests := []struct {
+		name string
+		addr string
+		want string
+	}{
+		{
+			name: "ipv4",
+			addr: "192.168.1.1:3000",
+			want: "192.168.1.1",
+		},
+		{
+			name: "ipv6",
+			addr: "[::1]:51178",
+			want: "..1",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := normalizeIPAddress(tt.addr); got != tt.want {
+				t.Errorf("normalizeIPAddress() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

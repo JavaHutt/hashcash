@@ -60,6 +60,7 @@ func (c *client) Run(_ context.Context) error {
 }
 
 func (c *client) requestService(conn io.ReadWriter) (*models.Hashcash, error) {
+	c.logger.Info("requesting service from the client...")
 	msg := models.Message{Kind: models.MessageKindRequestChallenge}
 
 	if err := writeJSONResp(conn, msg); err != nil {
@@ -70,6 +71,8 @@ func (c *client) requestService(conn io.ReadWriter) (*models.Hashcash, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read challenge response: %w", err)
 	}
+
+	c.logger.Infof("got hashcash %s", string(resp))
 
 	hashcash, err := models.ParseHashcash(string(resp))
 	if err != nil {
@@ -140,6 +143,7 @@ func readResponse(r io.Reader) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read bytes: %w", err)
 	}
+
 	resp = bytes.TrimSuffix(resp, []byte{models.EOFDelim})
 
 	return resp, nil

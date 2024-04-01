@@ -51,6 +51,6 @@ func main() {
 
 func captureSigs(sigs chan os.Signal, logger *zap.SugaredLogger, cancel context.CancelFunc) {
 	sig := <-sigs
-	logger.Infof("Received signal: %s", sig)
+	logger.Infof("received signal: %s", sig)
 	cancel()
 }

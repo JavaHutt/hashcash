@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -65,7 +66,7 @@ func (s *server) Listen(ctx context.Context) error {
 
 		go func() {
 			defer s.wg.Done()
-			s.handleRequest(conn)
+			s.handleRequest(ctx, conn)
 		}()
 	}
 }
@@ -91,7 +92,7 @@ func (s *server) Shutdown(ctx context.Context) error {
 	}
 }
 
-func (s *server) handleRequest(conn net.Conn) {
+func (s *server) handleRequest(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
 	for {
@@ -110,7 +111,7 @@ func (s *server) handleRequest(conn net.Conn) {
 				return
 			}
 		case models.MessageKindSolvedChallenge:
-			if err = s.verifySolved(conn, conn.RemoteAddr(), msg); err != nil {
+			if err = s.verifySolved(ctx, conn, conn.RemoteAddr(), msg); err != nil {
 				s.logger.Errorf("failed to verify solved challenge: %v", err)
 			}
 			return
@@ -122,10 +123,7 @@ func (s *server) handleRequest(conn net.Conn) {
 }
 
 func (s *server) chooseChallenge(conn io.Writer, clientAddr net.Addr) error {
-	resource, _, err := net.SplitHostPort(clientAddr.String())
-	if err != nil {
-		return fmt.Errorf("failed to split host port: %w", err)
-	}
+	resource := normalizeIPAddress(clientAddr.String())
 
 	hashcash := models.Hashcash{
 		Ver:      1,
@@ -136,17 +134,22 @@ func (s *server) chooseChallenge(conn io.Writer, clientAddr net.Addr) error {
 		Counter:  s.cfg.HashCounter,
 	}
 
-	if err = writeResp(conn, hashcash.String()); err != nil {
+	if err := writeResp(conn, hashcash.String()); err != nil {
 		return fmt.Errorf("failed to write hashcash string: %w", err)
 	}
 
 	return nil
 }
 
-func (s *server) verifySolved(w io.Writer, clientAddr net.Addr, msg models.Message) error {
-	resource, _, err := net.SplitHostPort(clientAddr.String())
+func (s *server) verifySolved(ctx context.Context, w io.Writer, clientAddr net.Addr, msg models.Message) error {
+	resource := normalizeIPAddress(clientAddr.String())
+
+	exists, err := s.store.Exists(ctx, msg.Hashcash)
 	if err != nil {
-		return fmt.Errorf("failed to split host port: %w", err)
+		return fmt.Errorf("failed to get hashcash from the store: %w", err)
+	}
+	if exists {
+		return errors.New("this hashcash is already exists")
 	}
 
 	hashcash, err := models.ParseHashcash(msg.Hashcash)
@@ -167,6 +170,12 @@ func (s *server) verifySolved(w io.Writer, clientAddr net.Addr, msg models.Messa
 		return errors.New("hash does not meet the difficulty criteria")
 	}
 
+	s.logger.Infof("hash %s has passed all checks!", msg.Hashcash)
+
+	if err = s.store.Set(ctx, msg.Hashcash); err != nil {
+		return fmt.Errorf("failed to save hash in the storage: %w", err)
+	}
+
 	return writeResp(w, getRandomWisdom())
 }
 
@@ -182,12 +191,31 @@ func writeResp(w io.Writer, response string) error {
 	return nil
 }
 
-func decodeMessage(r io.Reader) (models.Message, error) {
+func decodeMessage(conn net.Conn) (models.Message, error) {
 	var msg models.Message
-	err := json.NewDecoder(r).Decode(&msg)
+	err := json.NewDecoder(conn).Decode(&msg)
 	if err != nil {
 		return models.Message{}, fmt.Errorf("error decoding message: %w", err)
 	}
 
 	return msg, nil
+}
+
+func normalizeIPAddress(addr string) string {
+	host, _, splitErr := net.SplitHostPort(addr)
+	if splitErr == nil {
+		addr = host
+	}
+
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return addr
+	}
+
+	if ip.To4() == nil {
+		// this is my little trick to create hashcash string without confusing `:` symbols
+		return strings.ReplaceAll(ip.String(), ":", ".")
+	}
+
+	return ip.String()
 }
