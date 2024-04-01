@@ -12,8 +12,8 @@ Design and implement “Word of Wisdom” tcp server.
 </ul>
 
 ## How to run
-To run locally, put your `config.yaml` file in `configs` directory. Default config file is already presented in repo. You can run server and clint separately with `make server` and `make client` commands respectively.
-For deployment, Dockerfiles for both the server and the client is also provided. Run containers with command `make up`
+To run locally, put your `config.yaml` file in `configs` directory. Default config file is already presented in repo. You can run server and clint separately with `make server` and `make client` commands respectively. You'll also need to run Redis as a store.
+For deployment, Dockerfiles for both the server, the client and redis is also provided. Run containers with command `make up`.
 
 ## Algorithm choice explained
 For the "Word of Wisdom" TCP server that employs a Proof of Work (PoW) mechanism to mitigate the risk of DDoS attacks, an efficient and suitable choice of PoW algorithm is crucial. The chosen algorithm is Hashcash. This decision is based on several factors that make Hashcash particularly apt for this application:
@@ -22,4 +22,6 @@ For the "Word of Wisdom" TCP server that employs a Proof of Work (PoW) mechanism
   <li>Widely Used and Tested</li>
   <li>Adjustable Difficulty</li>
   <li>Statelessness</li>
+  <li>Used by Bitcoin 💰</li>
+</ul>
 </ul>
