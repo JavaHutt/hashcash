@@ -1,3 +1,8 @@
+![Repository Top Language](https://img.shields.io/github/languages/top/JavaHutt/hashcash)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/JavaHutt/hashcash)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Coding all night)](https://img.shields.io/badge/coding-all%20night%20-purple)
+
 # Proof of Work server and client
 
 ## Task description
