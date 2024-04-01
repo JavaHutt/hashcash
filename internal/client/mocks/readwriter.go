@@ -31,14 +31,14 @@ func (mc *MockConn) RemoteAddr() net.Addr {
 	return nil
 }
 
-func (mc *MockConn) SetDeadline(t time.Time) error {
+func (mc *MockConn) SetDeadline(_ time.Time) error {
 	return nil
 }
 
-func (mc *MockConn) SetReadDeadline(t time.Time) error {
+func (mc *MockConn) SetReadDeadline(_ time.Time) error {
 	return nil
 }
 
-func (mc *MockConn) SetWriteDeadline(t time.Time) error {
+func (mc *MockConn) SetWriteDeadline(_ time.Time) error {
 	return nil
 }

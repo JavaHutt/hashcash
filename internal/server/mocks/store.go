@@ -16,7 +16,7 @@ func NewMockStore() *MockStore {
 	}
 }
 
-func (m *MockStore) Set(ctx context.Context, key string) error {
+func (m *MockStore) Set(_ context.Context, key string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -24,7 +24,7 @@ func (m *MockStore) Set(ctx context.Context, key string) error {
 	return nil
 }
 
-func (m *MockStore) Exists(ctx context.Context, key string) (bool, error) {
+func (m *MockStore) Exists(_ context.Context, key string) (bool, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 

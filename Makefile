@@ -7,6 +7,9 @@ server	:
 test	:
 	go test -v ./internal/*
 
+lint	:
+	golangci-lint run ./...
+
 volume	:
 	docker volume create redis_data
 
