@@ -23,9 +23,9 @@ func TestSolveChallenge(t *testing.T) {
 	}
 
 	solved, err := client.solveChallenge(hashcash)
-	assert.NoError(t, err, "should not error")
-	assert.NotNil(t, solved, "solved hashcash should not be nil")
-	assert.Greater(t, solved.Counter, 0, "counter should be incremented")
+	assert.NoError(t, err)
+	assert.NotNil(t, solved)
+	assert.Greater(t, solved.Counter, 0)
 }
 
 func TestSolveChallengeExpired(t *testing.T) {

@@ -1,5 +1,7 @@
 host: localhost
 port: 8080
+read_timeout: 30s
+write_timeout: 30s
 store_addr: localhost:6379
 store_expiration: 48h
 hash_bits: 5

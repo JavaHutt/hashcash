@@ -7,7 +7,6 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"time"
 
@@ -17,16 +16,32 @@ import (
 	"go.uber.org/zap"
 )
 
+const defaultTimeout = time.Second * 15
+
 type client struct {
-	cfg    configs.Config
-	logger *zap.SugaredLogger
+	cfg      configs.Config
+	logger   *zap.SugaredLogger
+	rTimeout time.Duration
+	wTimeout time.Duration
 }
 
 func NewClient(cfg configs.Config, logger *zap.SugaredLogger) *client {
-	return &client{
-		cfg:    cfg,
-		logger: logger,
+	c := client{
+		cfg:      cfg,
+		logger:   logger,
+		rTimeout: defaultTimeout,
+		wTimeout: defaultTimeout,
 	}
+
+	if cfg.ReadTimeout != 0 {
+		c.rTimeout = cfg.ReadTimeout
+	}
+
+	if cfg.WriteTimeout != 0 {
+		c.wTimeout = cfg.WriteTimeout
+	}
+
+	return &c
 }
 
 func (c *client) Run(_ context.Context) error {
@@ -59,15 +74,15 @@ func (c *client) Run(_ context.Context) error {
 	return nil
 }
 
-func (c *client) requestService(conn io.ReadWriter) (*models.Hashcash, error) {
+func (c *client) requestService(conn net.Conn) (*models.Hashcash, error) {
 	c.logger.Info("requesting service from the client...")
 	msg := models.Message{Kind: models.MessageKindRequestChallenge}
 
-	if err := writeJSONResp(conn, msg); err != nil {
+	if err := c.writeJSONResp(conn, msg); err != nil {
 		return nil, fmt.Errorf("failed to write request message: %w", err)
 	}
 
-	resp, err := readResponse(conn)
+	resp, err := c.readResponse(conn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read challenge response: %w", err)
 	}
@@ -106,17 +121,17 @@ func (c *client) checkDate(date time.Time) bool {
 	return now.Before(expiration) || now.Equal(expiration)
 }
 
-func (c *client) respondSolved(conn io.ReadWriter, hashcash models.Hashcash) (string, error) {
+func (c *client) respondSolved(conn net.Conn, hashcash models.Hashcash) (string, error) {
 	msg := models.Message{
 		Kind:     models.MessageKindSolvedChallenge,
 		Hashcash: hashcash.String(),
 	}
 
-	if err := writeJSONResp(conn, msg); err != nil {
+	if err := c.writeJSONResp(conn, msg); err != nil {
 		return "", fmt.Errorf("failed to write solved message: %w", err)
 	}
 
-	resp, err := readResponse(conn)
+	resp, err := c.readResponse(conn)
 	if err != nil {
 		return "", fmt.Errorf("failed to read granted response: %w", err)
 	}
@@ -124,24 +139,40 @@ func (c *client) respondSolved(conn io.ReadWriter, hashcash models.Hashcash) (st
 	return string(resp), nil
 }
 
-func writeJSONResp(w io.Writer, response any) error {
+func (c *client) writeJSONResp(conn net.Conn, response any) error {
 	b, err := json.Marshal(response)
 	if err != nil {
 		return fmt.Errorf("failed to marshal response: %w", err)
 	}
 
-	if _, err = w.Write(b); err != nil {
+	if err = conn.SetWriteDeadline(time.Now().Add(c.wTimeout)); err != nil {
+		return fmt.Errorf("failed to set write deadline: %w", err)
+	}
+
+	if _, err = conn.Write(b); err != nil {
 		return fmt.Errorf("failed to write response message: %w", err)
+	}
+
+	if err := conn.SetWriteDeadline(time.Time{}); err != nil {
+		return fmt.Errorf("failed to reset write deadline: %w", err)
 	}
 
 	return nil
 }
 
-func readResponse(r io.Reader) ([]byte, error) {
-	reader := bufio.NewReader(r)
+func (c *client) readResponse(conn net.Conn) ([]byte, error) {
+	if err := conn.SetReadDeadline(time.Now().Add(c.rTimeout)); err != nil {
+		return nil, fmt.Errorf("failed to set read deadline: %w", err)
+	}
+
+	reader := bufio.NewReader(conn)
 	resp, err := reader.ReadBytes(models.EOFDelim)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read bytes: %w", err)
+	}
+
+	if err = conn.SetReadDeadline(time.Time{}); err != nil {
+		return nil, fmt.Errorf("failed to reset read deadline: %w", err)
 	}
 
 	resp = bytes.TrimSuffix(resp, []byte{models.EOFDelim})
