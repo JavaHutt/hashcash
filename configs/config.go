@@ -12,6 +12,8 @@ import (
 type Config struct {
 	Host              string        `mapstructure:"host"`
 	Port              int           `mapstructure:"port"`
+	StoreAddr         string        `mapstructure:"store_addr"`
+	StoreExpiration   time.Duration `mapstructure:"store_expiration"`
 	HashBits          int           `mapstructure:"hash_bits"`
 	HashMaxIterations int           `mapstructure:"hash_max_iterations"`
 	HashCounter       int           `mapstructure:"hash_counter"`

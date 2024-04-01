@@ -10,6 +10,8 @@ import (
 
 	"github.com/JavaHutt/hashcash/configs"
 	"github.com/JavaHutt/hashcash/internal/server"
+	"github.com/JavaHutt/hashcash/internal/store"
+
 	"go.uber.org/zap"
 )
 
@@ -24,11 +26,13 @@ func main() {
 	}
 	defer logger.Sync()
 
+	store := store.NewRedisStore(*cfg)
+
 	sugar := logger.Sugar()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s := server.NewServer(*cfg, sugar)
+	s := server.NewServer(*cfg, sugar, store)
 	go func() {
 		if err = s.Listen(ctx); err != nil {
 			sugar.Fatalf("failed to start listening: %v", err)

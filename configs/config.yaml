@@ -1,6 +1,8 @@
 host: localhost
 port: 8080
+store_addr: localhost:6379
+store_expiration: 48h
 hash_bits: 5
 hash_max_iterations: 1000000
 hash_counter: 3
-hash_expiration: "30m"
+hash_expiration: 48h

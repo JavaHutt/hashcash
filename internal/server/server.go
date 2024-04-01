@@ -19,18 +19,25 @@ import (
 	"go.uber.org/zap"
 )
 
+type store interface {
+	Set(ctx context.Context, key string) error
+	Exists(ctx context.Context, key string) (bool, error)
+}
+
 type server struct {
 	cfg    configs.Config
 	logger *zap.SugaredLogger
 	wg     sync.WaitGroup
 	li     net.Listener
+	store  store
 }
 
 // NewServer is a constructor
-func NewServer(cfg configs.Config, logger *zap.SugaredLogger) *server {
+func NewServer(cfg configs.Config, logger *zap.SugaredLogger, store store) *server {
 	return &server{
 		cfg:    cfg,
 		logger: logger,
+		store:  store,
 	}
 }
 
