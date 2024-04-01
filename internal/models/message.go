@@ -12,3 +12,7 @@ type Message struct {
 	Kind     messageKind `json:"kind"`
 	Hashcash string      `json:"hashcash"`
 }
+
+func (k messageKind) String() string {
+	return string(k)
+}

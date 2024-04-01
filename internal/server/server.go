@@ -19,6 +19,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const hashcashVer = 1
+
 type store interface {
 	Set(ctx context.Context, key string) error
 	Exists(ctx context.Context, key string) (bool, error)
@@ -127,7 +129,7 @@ func (s *server) handleRequest(ctx context.Context, conn net.Conn) {
 			}
 			return
 		default:
-			s.logger.Warnf("unknown message kind: %v", msg.Kind)
+			s.logger.Warnf("unknown message kind: %s", msg.Kind)
 			return
 		}
 	}
@@ -137,7 +139,7 @@ func (s *server) chooseChallenge(conn net.Conn) error {
 	resource := normalizeIPAddress(conn.RemoteAddr().String())
 
 	hashcash := models.Hashcash{
-		Ver:      1,
+		Ver:      hashcashVer,
 		Bits:     s.cfg.HashBits,
 		Date:     time.Now().UTC(),
 		Resource: resource,
@@ -205,7 +207,7 @@ func (s *server) writeResp(conn net.Conn, response string) error {
 		return fmt.Errorf("failed to write to connection: %w", err)
 	}
 
-	if err := conn.SetWriteDeadline(time.Time{}); err != nil {
+	if err = conn.SetWriteDeadline(time.Time{}); err != nil {
 		return fmt.Errorf("failed to reset write deadline: %w", err)
 	}
 
@@ -213,13 +215,13 @@ func (s *server) writeResp(conn net.Conn, response string) error {
 }
 
 func (s *server) decodeMessage(conn net.Conn) (*models.Message, error) {
-	if err := conn.SetReadDeadline(time.Now().Add(s.rTimeout)); err != nil {
+	err := conn.SetReadDeadline(time.Now().Add(s.rTimeout))
+	if err != nil {
 		return nil, fmt.Errorf("failed to set read deadline: %w", err)
 	}
 
 	var msg models.Message
-	err := json.NewDecoder(conn).Decode(&msg)
-	if err != nil {
+	if err = json.NewDecoder(conn).Decode(&msg); err != nil {
 		return nil, fmt.Errorf("error decoding message: %w", err)
 	}
 
