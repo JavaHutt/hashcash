@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"net"
 	"testing"
 	"time"
 
@@ -22,11 +21,9 @@ func TestChooseChallenge(t *testing.T) {
 		logger: zap.NewNop().Sugar(),
 	}
 
-	mockConn := &mocks.MockConn{}
-	clientAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:8080")
-	assert.NoError(t, err)
+	mockConn := mocks.NewMockConn()
 
-	err = s.chooseChallenge(mockConn, clientAddr)
+	err := s.chooseChallenge(mockConn)
 	assert.NoError(t, err)
 
 	writeBufferContents := mockConn.WriteBuffer.String()
@@ -38,7 +35,7 @@ func TestChooseChallenge(t *testing.T) {
 
 func TestVerifySolvedHashExists(t *testing.T) {
 	mockStore := mocks.NewMockStore()
-	mockConn := &mocks.MockConn{}
+	mockConn := mocks.NewMockConn()
 
 	s := &server{
 		store:  mockStore,
@@ -46,19 +43,18 @@ func TestVerifySolvedHashExists(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	clientAddr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080}
 	hashcashStr := "1:5:240401110844:127.0.0.1::NjAw:Mzg="
 	msg := models.Message{Hashcash: hashcashStr}
 
 	mockStore.Set(ctx, hashcashStr)
 
-	err := s.verifySolved(ctx, mockConn, clientAddr, msg)
+	err := s.verifySolved(ctx, mockConn, msg)
 	assert.ErrorIs(t, err, ErrHashcashExists)
 }
 
 func TestVerifySolvedAddrMismatch(t *testing.T) {
 	mockStore := mocks.NewMockStore()
-	mockConn := &mocks.MockConn{}
+	mockConn := mocks.NewMockConn()
 
 	s := &server{
 		store:  mockStore,
@@ -66,17 +62,16 @@ func TestVerifySolvedAddrMismatch(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	clientAddr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080}
 	hashcashStr := "1:5:240401110844:..1::NjAw:Mzg="
 	msg := models.Message{Hashcash: hashcashStr}
 
-	err := s.verifySolved(ctx, mockConn, clientAddr, msg)
+	err := s.verifySolved(ctx, mockConn, msg)
 	assert.ErrorIs(t, err, ErrAddrMismatch)
 }
 
 func TestVerifySolvedDateCheck(t *testing.T) {
 	mockStore := mocks.NewMockStore()
-	mockConn := &mocks.MockConn{}
+	mockConn := mocks.NewMockConn()
 
 	s := &server{
 		cfg: configs.Config{
@@ -87,11 +82,10 @@ func TestVerifySolvedDateCheck(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	clientAddr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080}
 	hashcashStr := "1:5:200401110844:127.0.0.1::NjAw:Mzg="
 	msg := models.Message{Hashcash: hashcashStr}
 
-	err := s.verifySolved(ctx, mockConn, clientAddr, msg)
+	err := s.verifySolved(ctx, mockConn, msg)
 	assert.ErrorIs(t, err, ErrDateCheck)
 }
 

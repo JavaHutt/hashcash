@@ -153,7 +153,7 @@ func (c *client) writeJSONResp(conn net.Conn, response any) error {
 		return fmt.Errorf("failed to write response message: %w", err)
 	}
 
-	if err := conn.SetWriteDeadline(time.Time{}); err != nil {
+	if err = conn.SetWriteDeadline(time.Time{}); err != nil {
 		return fmt.Errorf("failed to reset write deadline: %w", err)
 	}
 

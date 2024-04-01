@@ -11,6 +11,10 @@ type MockConn struct {
 	WriteBuffer bytes.Buffer
 }
 
+func NewMockConn() *MockConn {
+	return &MockConn{}
+}
+
 func (mc *MockConn) Read(b []byte) (n int, err error) {
 	return mc.ReadBuffer.Read(b)
 }
@@ -28,7 +32,10 @@ func (mc *MockConn) LocalAddr() net.Addr {
 }
 
 func (mc *MockConn) RemoteAddr() net.Addr {
-	return nil
+	return &net.TCPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: 8080,
+	}
 }
 
 func (mc *MockConn) SetDeadline(_ time.Time) error {

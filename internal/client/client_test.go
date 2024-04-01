@@ -7,6 +7,7 @@ import (
 	"github.com/JavaHutt/hashcash/configs"
 	"github.com/JavaHutt/hashcash/internal/client/mocks"
 	"github.com/JavaHutt/hashcash/internal/models"
+	"go.uber.org/zap"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -83,8 +84,12 @@ func TestRequestService(t *testing.T) {
 		Counter:  1,
 	}
 	conn.ReadBuffer.Write([]byte(h.String() + string(models.EOFDelim)))
+	logger, err := zap.NewDevelopment()
+	assert.NoError(t, err)
 
-	client := &client{}
+	client := &client{
+		logger: logger.Sugar(),
+	}
 
 	hashcash, err := client.requestService(conn)
 	assert.NoError(t, err)
