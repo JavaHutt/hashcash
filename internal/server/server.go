@@ -149,7 +149,7 @@ func (s *server) verifySolved(ctx context.Context, w io.Writer, clientAddr net.A
 		return fmt.Errorf("failed to get hashcash from the store: %w", err)
 	}
 	if exists {
-		return errors.New("this hashcash is already exists")
+		return ErrHashcashExists
 	}
 
 	hashcash, err := models.ParseHashcash(msg.Hashcash)
@@ -158,16 +158,16 @@ func (s *server) verifySolved(ctx context.Context, w io.Writer, clientAddr net.A
 	}
 
 	if hashcash.Resource != resource {
-		return errors.New("hashcash resource and client addr aren't matching")
+		return ErrAddrMismatch
 	}
 
 	if !s.checkDate(hashcash.Date) {
-		return errors.New("didn't pass date check")
+		return ErrDateCheck
 	}
 
 	hash := sha1.Sum([]byte(hashcash.String()))
 	if !models.CheckHash(hash[:], hashcash.Bits) {
-		return errors.New("hash does not meet the difficulty criteria")
+		return ErrCheckHash
 	}
 
 	s.logger.Infof("hash %s has passed all checks!", msg.Hashcash)
@@ -181,7 +181,7 @@ func (s *server) verifySolved(ctx context.Context, w io.Writer, clientAddr net.A
 
 func (s *server) checkDate(date time.Time) bool {
 	now := time.Now().UTC()
-	return date.Before(now.Add(s.cfg.HashExpiration))
+	return now.Before(date.Add(s.cfg.HashExpiration))
 }
 
 func writeResp(w io.Writer, response string) error {
@@ -191,9 +191,9 @@ func writeResp(w io.Writer, response string) error {
 	return nil
 }
 
-func decodeMessage(conn net.Conn) (models.Message, error) {
+func decodeMessage(r io.Reader) (models.Message, error) {
 	var msg models.Message
-	err := json.NewDecoder(conn).Decode(&msg)
+	err := json.NewDecoder(r).Decode(&msg)
 	if err != nil {
 		return models.Message{}, fmt.Errorf("error decoding message: %w", err)
 	}

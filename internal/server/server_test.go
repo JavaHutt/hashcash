@@ -1,10 +1,13 @@
 package server
 
 import (
+	"context"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/JavaHutt/hashcash/configs"
+	"github.com/JavaHutt/hashcash/internal/models"
 	"github.com/JavaHutt/hashcash/internal/server/mocks"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -31,6 +34,65 @@ func TestChooseChallenge(t *testing.T) {
 
 	expectedResource := "127.0.0.1"
 	assert.Contains(t, writeBufferContents, expectedResource)
+}
+
+func TestVerifySolvedHashExists(t *testing.T) {
+	mockStore := mocks.NewMockStore()
+	mockConn := &mocks.MockConn{}
+
+	s := &server{
+		store:  mockStore,
+		logger: zap.NewNop().Sugar(),
+	}
+
+	ctx := context.Background()
+	clientAddr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080}
+	hashcashStr := "1:5:240401110844:127.0.0.1::NjAw:Mzg="
+	msg := models.Message{Hashcash: hashcashStr}
+
+	mockStore.Set(ctx, hashcashStr)
+
+	err := s.verifySolved(ctx, mockConn, clientAddr, msg)
+	assert.ErrorIs(t, err, ErrHashcashExists)
+}
+
+func TestVerifySolvedAddrMismatch(t *testing.T) {
+	mockStore := mocks.NewMockStore()
+	mockConn := &mocks.MockConn{}
+
+	s := &server{
+		store:  mockStore,
+		logger: zap.NewNop().Sugar(),
+	}
+
+	ctx := context.Background()
+	clientAddr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080}
+	hashcashStr := "1:5:240401110844:..1::NjAw:Mzg="
+	msg := models.Message{Hashcash: hashcashStr}
+
+	err := s.verifySolved(ctx, mockConn, clientAddr, msg)
+	assert.ErrorIs(t, err, ErrAddrMismatch)
+}
+
+func TestVerifySolvedDateCheck(t *testing.T) {
+	mockStore := mocks.NewMockStore()
+	mockConn := &mocks.MockConn{}
+
+	s := &server{
+		cfg: configs.Config{
+			HashExpiration: time.Hour,
+		},
+		store:  mockStore,
+		logger: zap.NewNop().Sugar(),
+	}
+
+	ctx := context.Background()
+	clientAddr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080}
+	hashcashStr := "1:5:200401110844:127.0.0.1::NjAw:Mzg="
+	msg := models.Message{Hashcash: hashcashStr}
+
+	err := s.verifySolved(ctx, mockConn, clientAddr, msg)
+	assert.ErrorIs(t, err, ErrDateCheck)
 }
 
 func Test_normalizeIPAddress(t *testing.T) {
